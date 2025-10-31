@@ -114,6 +114,45 @@
   font-style: italic;
 }
 
+.formTextarea {
+  max-width: 342px;
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  resize: vertical;
+  min-height: 120px;
+  font-family: inherit;
+  resize: none;
+}
+
+.formTextarea:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.deleteButton {
+  width: 100%;
+  padding: 10px;
+  background-color: #ff4444;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  margin-top: 10px;
+}
+
+.deleteButton:hover {
+  background-color: #cc0000;
+}
+
+.deleteButton:active {
+  background-color: #990000;
+}
+
 @media (max-width: 768px) {
   .panel {
     width: 100%;

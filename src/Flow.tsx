@@ -7,10 +7,10 @@ import {
   Controls,
   type Node,
   type OnConnect,
-  type NodeChange,
-  type EdgeChange,
   type OnReconnect,
   type Edge,
+  type NodeChange,
+  type EdgeChange,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
@@ -19,20 +19,19 @@ import { FlowPanel } from "./components/flow-panel/FlowPanel";
 import styles from "./styles/Flow.module.css";
 import { useAppSelector, useAppDispatch } from "./store/hooks";
 import {
-  updateNode,
+  updateNodeData, // Импортируем объединенный экшен
   setNodes,
   onNodesChange,
   onEdgesChange,
   onConnect,
-  removeEdge,
   onReconnect,
+  removeEdge,
+  removeNode,
 } from "./store/slices/gptSlice";
 
 export const Flow = () => {
   const dispatch = useAppDispatch();
   const { data } = useAppSelector((store) => store.gpt);
-
-  const edgeReconnectSuccessful = useRef<boolean>(true);
 
   // Применяем layout только один раз при монтировании
   useEffect(() => {
@@ -41,13 +40,17 @@ export const Flow = () => {
       data.edges
     );
     dispatch(setNodes(layoutedNodes));
-  }, []); // Только при монтировании
+  }, [dispatch]); // Только при монтировании
+
+  const edgeReconnectSuccessful = useRef<boolean>(true);
 
   // Состояния для панели
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState<boolean>(false);
   const [tempNodeLabel, setTempNodeLabel] = useState<string>("");
+  const [tempNodeDescription, setTempNodeDescription] = useState<string>("");
   const [initialLabel, setInitialLabel] = useState<string>("");
+  const [initialDescription, setInitialDescription] = useState<string>("");
 
   // Находим выбранный узел
   const selectedNode = data.nodes.find((node) => node.id === selectedNodeId);
@@ -56,8 +59,11 @@ export const Flow = () => {
   useEffect(() => {
     if (selectedNodeId && selectedNode && isPanelOpen) {
       const label = selectedNode.data?.label || "";
+      const description = selectedNode.data?.description || "";
       setTempNodeLabel(label);
+      setTempNodeDescription(description);
       setInitialLabel(label);
+      setInitialDescription(description);
     }
   }, [selectedNodeId, isPanelOpen]);
 
@@ -69,27 +75,74 @@ export const Flow = () => {
 
   // Закрытие панели с сохранением изменений
   const closePanel = useCallback(() => {
-    if (selectedNodeId && tempNodeLabel !== initialLabel) {
-      dispatch(
-        updateNode({
-          nodeId: selectedNodeId,
-          label: tempNodeLabel,
-        })
-      );
+    if (selectedNodeId) {
+      const updatedData: { label?: string; description?: string } = {};
+
+      // Проверяем, изменилась ли метка
+      if (tempNodeLabel !== initialLabel) {
+        updatedData.label = tempNodeLabel;
+      }
+
+      // Проверяем, изменилось ли описание
+      if (tempNodeDescription !== initialDescription) {
+        updatedData.description = tempNodeDescription;
+      }
+
+      // Если есть изменения, диспатчим объединенный экшен
+      if (Object.keys(updatedData).length > 0) {
+        dispatch(
+          updateNodeData({
+            nodeId: selectedNodeId,
+            data: updatedData,
+          })
+        );
+      }
     }
 
     setIsPanelOpen(false);
     setTimeout(() => {
       setSelectedNodeId(null);
       setTempNodeLabel("");
+      setTempNodeDescription("");
       setInitialLabel("");
+      setInitialDescription("");
     }, 300);
-  }, [selectedNodeId, tempNodeLabel, initialLabel, dispatch]);
+  }, [
+    selectedNodeId,
+    tempNodeLabel,
+    tempNodeDescription,
+    initialLabel,
+    initialDescription,
+    dispatch,
+  ]);
+
+  // Обработчик удаления узла
+  const handleDeleteNode = useCallback(() => {
+    if (selectedNodeId) {
+      dispatch(removeNode(selectedNodeId));
+      setIsPanelOpen(false);
+      setTimeout(() => {
+        setSelectedNodeId(null);
+        setTempNodeLabel("");
+        setTempNodeDescription("");
+        setInitialLabel("");
+        setInitialDescription("");
+      }, 300);
+    }
+  }, [selectedNodeId, dispatch]);
 
   // Обработчик изменения имени узла
   const handleNodeNameChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
       setTempNodeLabel(event.target.value);
+    },
+    []
+  );
+
+  // Обработчик изменения описания узла
+  const handleNodeDescriptionChange = useCallback(
+    (event: React.ChangeEvent<HTMLTextAreaElement>) => {
+      setTempNodeDescription(event.target.value);
     },
     []
   );
@@ -147,12 +200,12 @@ export const Flow = () => {
         onEdgesChange={handleEdgesChange}
         onConnect={handleConnect}
         onNodeClick={onNodeClick}
-        onReconnect={handleReconnect}
-        onReconnectStart={onReconnectStart}
-        onReconnectEnd={onReconnectEnd}
         connectionLineType={ConnectionLineType.SmoothStep}
         fitView
         snapToGrid
+        onReconnect={handleReconnect}
+        onReconnectStart={onReconnectStart}
+        onReconnectEnd={onReconnectEnd}
         proOptions={{ hideAttribution: true }}
       >
         <Controls position="bottom-left" style={{ bottom: "25%" }} />
@@ -163,6 +216,9 @@ export const Flow = () => {
         isOpen={isPanelOpen}
         value={tempNodeLabel}
         onChangeValue={handleNodeNameChange}
+        descriptionValue={tempNodeDescription}
+        onChangeDescription={handleNodeDescriptionChange}
+        onDelete={handleDeleteNode}
       />
     </div>
   );

@@ -10,7 +10,7 @@ import {
   addEdge,
   reconnectEdge,
 } from "@xyflow/react";
-import type { CustomNode } from "../../types";
+import type { CustomNode, CustomNodeData } from "../../types";
 
 interface InitialStateI {
   data: {
@@ -27,59 +27,59 @@ const initialState: InitialStateI = {
       {
         id: "1",
         type: "input",
-        data: { label: "inputdsadas" },
+        data: { label: "inputdsadas", description: "Входной узел" },
         position: { x: 0, y: 0 },
       },
       {
         id: "2",
-        data: { label: "node 2" },
+        data: { label: "node 2", description: "Описание узла 2" },
         position: { x: 0, y: 0 },
       },
       {
         id: "2a",
-        data: { label: "node 2a" },
+        data: { label: "node 2a", description: "Описание узла 2" },
         position: { x: 0, y: 0 },
       },
       {
         id: "2b",
-        data: { label: "node 2b" },
+        data: { label: "node 2b", description: "Описание узла 2" },
         position: { x: 0, y: 0 },
       },
       {
         id: "2c",
-        data: { label: "node 2c" },
+        data: { label: "node 2c", description: "Описание узла 2" },
         position: { x: 0, y: 0 },
       },
       {
         id: "2d",
-        data: { label: "node 2d" },
+        data: { label: "node 2d", description: "Описание узла 3" },
         position: { x: 0, y: 0 },
       },
       {
         id: "3",
-        data: { label: "node 3" },
+        data: { label: "node 3", description: "Описание узла 3" },
         position: { x: 0, y: 0 },
       },
       {
         id: "4",
-        data: { label: "node 4" },
+        data: { label: "node 4", description: "Описание узла 3" },
         position: { x: 0, y: 0 },
       },
       {
         id: "5",
-        data: { label: "node 5" },
+        data: { label: "node 5", description: "Описание узла 3" },
         position: { x: 0, y: 0 },
       },
       {
         id: "6",
         type: "output",
-        data: { label: "output" },
+        data: { label: "output", description: "Описание узла 3" },
         position: { x: 0, y: 0 },
       },
       {
         id: "7",
         type: "output",
-        data: { label: "output" },
+        data: { label: "output", description: "Описание узла 3" },
         position: { x: 0, y: 0 },
       },
     ],
@@ -104,15 +104,26 @@ const gptSlice = createSlice({
   initialState,
   reducers: {
     // Обновление метки узла
-    updateNode: (
+    updateNodeData: (
       state,
-      action: PayloadAction<{ nodeId: string; label: string }>
+      action: PayloadAction<{ nodeId: string; data: Partial<CustomNodeData> }>
     ) => {
-      const { nodeId, label } = action.payload;
+      const { nodeId, data } = action.payload;
       const node = state.data.nodes.find((node) => node.id === nodeId);
       if (node) {
-        node.data.label = label;
+        node.data = { ...node.data, ...data };
       }
+    },
+    removeNode: (state, action: PayloadAction<string>) => {
+      const nodeId = action.payload;
+
+      // Удаляем узел
+      state.data.nodes = state.data.nodes.filter((node) => node.id !== nodeId);
+
+      // Удаляем все ребра, связанные с этим узлом
+      state.data.edges = state.data.edges.filter(
+        (edge) => edge.source !== nodeId && edge.target !== nodeId
+      );
     },
     // Установка узлов (для инициализации layout)
     setNodes: (state, action: PayloadAction<CustomNode[]>) => {
@@ -159,7 +170,7 @@ const gptSlice = createSlice({
 });
 
 export const {
-  updateNode,
+  updateNodeData,
   setNodes,
   setEdges,
   onNodesChange,
@@ -167,5 +178,6 @@ export const {
   onConnect,
   onReconnect,
   removeEdge,
+  removeNode,
 } = gptSlice.actions;
 export default gptSlice.reducer;

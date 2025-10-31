@@ -7,6 +7,9 @@ interface FlowPanelProps {
   isOpen: boolean;
   value: string;
   onChangeValue: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onDelete?: () => void;
+  descriptionValue: string; // Добавляем значение описания
+  onChangeDescription: (event: React.ChangeEvent<HTMLTextAreaElement>) => void;
 }
 
 export const FlowPanel: FC<FlowPanelProps> = ({
@@ -14,6 +17,9 @@ export const FlowPanel: FC<FlowPanelProps> = ({
   isOpen,
   value,
   onChangeValue,
+  onDelete,
+  descriptionValue,
+  onChangeDescription,
 }) => {
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -37,6 +43,13 @@ export const FlowPanel: FC<FlowPanelProps> = ({
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [isOpen, onClose]);
+
+  const handleDelete = () => {
+    if (onDelete) {
+      onDelete();
+      onClose(); // Закрываем панель после удаления
+    }
+  };
 
   return (
     <>
@@ -69,9 +82,22 @@ export const FlowPanel: FC<FlowPanelProps> = ({
           {/* Место для будущего textarea */}
           <div className={styles.formGroup}>
             <label className={styles.formLabel}>Описание:</label>
-            <div className={styles.textareaPlaceholder}>
-              Здесь будет textarea для описания
-            </div>
+            <textarea
+              value={descriptionValue}
+              onChange={onChangeDescription}
+              className={styles.formTextarea}
+              placeholder="Введите описание узла"
+              rows={4}
+            />
+          </div>
+          <div className={styles.formGroup}>
+            <button
+              type="button"
+              onClick={handleDelete}
+              className={styles.deleteButton}
+            >
+              Удалить узел
+            </button>
           </div>
         </div>
       </div>
