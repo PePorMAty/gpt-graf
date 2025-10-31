@@ -1,17 +1,25 @@
+// utils/get-layouted-elements.ts
 import dagre from "@dagrejs/dagre";
-import type { Edge } from "@xyflow/react";
 import type { CustomNode } from "../types";
-
-const dagreGraph = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
+import type { Edge } from "@xyflow/react";
 
 const nodeWidth = 172;
 const nodeHeight = 36;
 
-export const getLayoutedElements = (nodes: CustomNode[], edges: Edge[]) => {
+const dagreGraph = new dagre.graphlib.Graph();
+dagreGraph.setDefaultEdgeLabel(() => ({}));
+
+export const getLayoutedElements = (
+  nodes: CustomNode[],
+  edges: Edge[]
+): { nodes: CustomNode[]; edges: Edge[] } => {
   dagreGraph.setGraph({ rankdir: "TB" });
 
   nodes.forEach((node) => {
-    dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
+    dagreGraph.setNode(node.id, {
+      width: node.width || nodeWidth,
+      height: node.height || nodeHeight,
+    });
   });
 
   edges.forEach((edge) => {
@@ -22,15 +30,13 @@ export const getLayoutedElements = (nodes: CustomNode[], edges: Edge[]) => {
 
   const newNodes = nodes.map((node) => {
     const nodeWithPosition = dagreGraph.node(node.id);
-    const newNode = {
+    return {
       ...node,
       position: {
-        x: nodeWithPosition.x - nodeWidth / 2,
-        y: nodeWithPosition.y - nodeHeight / 2,
+        x: nodeWithPosition.x - (node.width || nodeWidth) / 2,
+        y: nodeWithPosition.y - (node.height || nodeHeight) / 2,
       },
     };
-
-    return newNode;
   });
 
   return { nodes: newNodes, edges };

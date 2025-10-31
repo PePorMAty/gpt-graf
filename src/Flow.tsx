@@ -1,130 +1,158 @@
-import { useCallback, useRef, useState } from "react";
+// Flow.tsx
+import { useCallback, useRef, useState, useEffect } from "react";
 import {
   Background,
   ReactFlow,
-  addEdge,
   ConnectionLineType,
-  useNodesState,
-  useEdgesState,
   Controls,
-  reconnectEdge,
   type Node,
   type OnConnect,
+  type NodeChange,
+  type EdgeChange,
   type OnReconnect,
   type Edge,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import styles from "./Flow.module.css"; // Импорт CSS модуля
 
-import { initialNodes, initialEdges } from "./initialElements";
 import { getLayoutedElements } from "./utils/get-layouted-elements";
-import type { CustomEdge, CustomNode } from "./types";
 import { FlowPanel } from "./components/flow-panel/FlowPanel";
-
-const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
-  initialNodes,
-  initialEdges
-);
+import styles from "./styles/Flow.module.css";
+import { useAppSelector, useAppDispatch } from "./store/hooks";
+import {
+  updateNode,
+  setNodes,
+  onNodesChange,
+  onEdgesChange,
+  onConnect,
+  removeEdge,
+  onReconnect,
+} from "./store/slices/gptSlice";
 
 export const Flow = () => {
+  const dispatch = useAppDispatch();
+  const { data } = useAppSelector((store) => store.gpt);
+
   const edgeReconnectSuccessful = useRef<boolean>(true);
-  const [nodes, setNodes, onNodesChange] =
-    useNodesState<CustomNode>(layoutedNodes);
-  const [edges, setEdges, onEdgesChange] =
-    useEdgesState<CustomEdge>(layoutedEdges);
+
+  // Применяем layout только один раз при монтировании
+  useEffect(() => {
+    const { nodes: layoutedNodes } = getLayoutedElements(
+      data.nodes,
+      data.edges
+    );
+    dispatch(setNodes(layoutedNodes));
+  }, []); // Только при монтировании
 
   // Состояния для панели
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState<boolean>(false);
+  const [tempNodeLabel, setTempNodeLabel] = useState<string>("");
+  const [initialLabel, setInitialLabel] = useState<string>("");
 
-  // Получаем актуальные данные выбранного узла
-  const selectedNode = nodes.find((node) => node.id === selectedNodeId);
-  const nodeName = selectedNode?.data?.label || "";
+  // Находим выбранный узел
+  const selectedNode = data.nodes.find((node) => node.id === selectedNodeId);
+
+  // При открытии панели устанавливаем текущее значение только один раз
+  useEffect(() => {
+    if (selectedNodeId && selectedNode && isPanelOpen) {
+      const label = selectedNode.data?.label || "";
+      setTempNodeLabel(label);
+      setInitialLabel(label);
+    }
+  }, [selectedNodeId, isPanelOpen]);
 
   // Обработчик клика по узлу
-  const onNodeClick = useCallback(
-    (_: unknown, node: Node) => {
-      setSelectedNodeId(node.id);
-      setIsPanelOpen(true);
-    },
-    [setSelectedNodeId, setIsPanelOpen]
-  );
+  const onNodeClick = useCallback((_: unknown, node: Node) => {
+    setSelectedNodeId(node.id);
+    setIsPanelOpen(true);
+  }, []);
 
-  // Закрытие панели
+  // Закрытие панели с сохранением изменений
   const closePanel = useCallback(() => {
+    if (selectedNodeId && tempNodeLabel !== initialLabel) {
+      dispatch(
+        updateNode({
+          nodeId: selectedNodeId,
+          label: tempNodeLabel,
+        })
+      );
+    }
+
     setIsPanelOpen(false);
-    // После завершения анимации сбрасываем выбранный узел
-    setTimeout(() => setSelectedNodeId(null), 300);
-  }, [setIsPanelOpen, setSelectedNodeId]);
+    setTimeout(() => {
+      setSelectedNodeId(null);
+      setTempNodeLabel("");
+      setInitialLabel("");
+    }, 300);
+  }, [selectedNodeId, tempNodeLabel, initialLabel, dispatch]);
 
   // Обработчик изменения имени узла
   const handleNodeNameChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
-      const newLabel = event.target.value;
-
-      if (selectedNodeId) {
-        setNodes((nds) =>
-          nds.map((node) => {
-            if (node.id === selectedNodeId) {
-              return {
-                ...node,
-                data: {
-                  ...node.data,
-                  label: newLabel,
-                },
-              };
-            }
-            return node;
-          })
-        );
-      }
+      setTempNodeLabel(event.target.value);
     },
-    [selectedNodeId, setNodes]
+    []
   );
 
-  const onConnect: OnConnect = useCallback(
-    (params) => setEdges((eds) => addEdge({ ...params }, eds)),
-    [setEdges]
+  // Обработчики изменений узлов и ребер
+  const handleNodesChange = useCallback(
+    (changes: NodeChange[]) => {
+      dispatch(onNodesChange(changes));
+    },
+    [dispatch]
+  );
+
+  const handleEdgesChange = useCallback(
+    (changes: EdgeChange[]) => {
+      dispatch(onEdgesChange(changes));
+    },
+    [dispatch]
+  );
+
+  const handleConnect: OnConnect = useCallback(
+    (params) => {
+      dispatch(onConnect(params));
+    },
+    [dispatch]
   );
 
   const onReconnectStart = useCallback(() => {
     edgeReconnectSuccessful.current = false;
-  }, [edgeReconnectSuccessful]);
+  }, []);
 
-  const onReconnect: OnReconnect = useCallback(
+  const handleReconnect: OnReconnect = useCallback(
     (oldEdge, newConnection) => {
       edgeReconnectSuccessful.current = true;
-      setEdges((els) => reconnectEdge(oldEdge, newConnection, els));
+      dispatch(onReconnect({ oldEdge, newConnection }));
     },
-    [edgeReconnectSuccessful, setEdges]
+    [dispatch]
   );
 
   const onReconnectEnd = useCallback(
     (_: unknown, edge: Edge) => {
       if (!edgeReconnectSuccessful.current) {
-        setEdges((eds) => eds.filter((e) => e.id !== edge.id));
+        dispatch(removeEdge(edge.id));
       }
-
       edgeReconnectSuccessful.current = true;
     },
-    [edgeReconnectSuccessful, setEdges]
+    [dispatch]
   );
 
   return (
     <div className={styles.container}>
       <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
+        nodes={data.nodes}
+        edges={data.edges}
+        onNodesChange={handleNodesChange}
+        onEdgesChange={handleEdgesChange}
+        onConnect={handleConnect}
         onNodeClick={onNodeClick}
+        onReconnect={handleReconnect}
+        onReconnectStart={onReconnectStart}
+        onReconnectEnd={onReconnectEnd}
         connectionLineType={ConnectionLineType.SmoothStep}
         fitView
         snapToGrid
-        onReconnect={onReconnect}
-        onReconnectStart={onReconnectStart}
-        onReconnectEnd={onReconnectEnd}
         proOptions={{ hideAttribution: true }}
       >
         <Controls position="bottom-left" style={{ bottom: "25%" }} />
@@ -133,7 +161,7 @@ export const Flow = () => {
       <FlowPanel
         onClose={closePanel}
         isOpen={isPanelOpen}
-        value={nodeName}
+        value={tempNodeLabel}
         onChangeValue={handleNodeNameChange}
       />
     </div>
