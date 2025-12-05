@@ -1,37 +1,34 @@
-import { type Node, type Edge, type XYPosition } from "@xyflow/react";
+import { type Node, type Edge, type NodeProps } from "@xyflow/react";
 
-// Базовый тип данных узла
+/* ====== DATA STRUCTURE FROM SERVER ====== */
+
+// Структура node.data — ПО ФАКТУ (не выдуманная)
 export interface CustomNodeData {
   label: string;
   description?: string;
-  [key: string]: unknown; // Индексная сигнатура
+  [key: string]: unknown; // если GPT добавит что-то — не сломается
 }
 
-// Основной тип узла, который будет использоваться в Redux store
+// Основной тип узла react-flow
+// type определяется как (product | transformation)
 export type CustomNode = Node<CustomNodeData>;
 
-// Тип для узлов без позиции (если нужен где-то еще)
-export type CustomNodeWithoutPosition = Omit<CustomNode, "position"> & {
-  position?: XYPosition;
-};
-
-// Тип для узлов с обязательной позицией
-export type CustomNodeWithPosition = CustomNode;
-
-export type CustomEdge = Edge;
-
-// Дополнительные типы если нужно
-export interface ApiData {
-  nodes: Array<{
-    id: string;
-    type: string;
-    name?: string;
-    description?: string;
-  }>;
-  edges?: Edge[];
+// Edge от сервера
+export interface CustomEdge extends Edge {
+  type?: string;
 }
 
-export interface EditData {
-  label?: string;
-  description?: string;
+/* ====== NODE PROPS FOR CUSTOM COMPONENTS ====== */
+export type ProductNodeProps = NodeProps<CustomNode>;
+export type TransformationNodeProps = NodeProps<CustomNode>;
+
+/* ====== SERVER API TYPES ====== */
+
+export interface GraphApiResponse {
+  success: boolean;
+  nodes: CustomNode[];
+  edges: CustomEdge[];
+  has_more?: boolean;
+  leaf_nodes?: string[];
+  message?: string;
 }

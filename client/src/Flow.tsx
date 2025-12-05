@@ -1,4 +1,4 @@
-// Flow.tsx
+// components/Flow.tsx
 import { useCallback, useRef, useState, useEffect } from "react";
 import {
   Background,
@@ -11,36 +11,79 @@ import {
   type Edge,
   type NodeChange,
   type EdgeChange,
+  type NodeTypes,
+  useReactFlow,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
-import { getLayoutedElements } from "./utils/get-layouted-elements";
 import { FlowPanel } from "./components/flow-panel/FlowPanel";
+import { ProductNode } from "./components/nodes/ProductNode";
+import { TransformationNode } from "./components/nodes/TransformationNode";
+
 import styles from "./styles/Flow.module.css";
 import { useAppSelector, useAppDispatch } from "./store/hooks";
 import {
-  updateNodeData, // Импортируем объединенный экшен
-  setNodes,
+  updateNodeData,
   onNodesChange,
   onEdgesChange,
   onConnect,
   onReconnect,
   removeEdge,
   removeNode,
+  setGraphData,
 } from "./store/slices/gptSlice";
+import { getLayoutedElements } from "./utils/get-layouted-elements";
+
+const nodeTypes: NodeTypes = {
+  product: ProductNode,
+  transformation: TransformationNode,
+};
 
 export const Flow = () => {
   const dispatch = useAppDispatch();
-  const { data } = useAppSelector((store) => store.gpt);
+  const { data, leafNodes, hasMore, isLoading, error } = useAppSelector(
+    (store) => store.gpt
+  );
+  const { fitView } = useReactFlow();
+  const hasFittedView = useRef(false);
+  const [isApplyingLayout, setIsApplyingLayout] = useState(false);
 
-  // Применяем layout только один раз при монтировании
+  // Применяем layout при получении новых данных
   useEffect(() => {
-    const { nodes: layoutedNodes } = getLayoutedElements(
-      data.nodes,
-      data.edges
-    );
-    dispatch(setNodes(layoutedNodes));
-  }, [dispatch]); // Только при монтировании
+    if (data.nodes.length > 0 && !hasFittedView.current) {
+      applyLayout();
+    }
+  }, [data.nodes.length]); // Только при изменении количества узлов
+
+  // Функция для применения layout
+  const applyLayout = useCallback(() => {
+    if (data.nodes.length === 0) return;
+
+    setIsApplyingLayout(true);
+    console.log("Applying layout to", data.nodes.length, "nodes...");
+
+    try {
+      const { nodes: layoutedNodes, edges: layoutedEdges } =
+        getLayoutedElements(data.nodes, data.edges, "TB");
+
+      dispatch(
+        setGraphData({
+          nodes: layoutedNodes,
+          edges: layoutedEdges,
+        })
+      );
+
+      // Подгоняем вид после обновления DOM
+      setTimeout(() => {
+        fitView({ duration: 500, padding: 0.2 });
+        hasFittedView.current = true;
+        setIsApplyingLayout(false);
+      }, 100);
+    } catch (error) {
+      console.error("Failed to apply layout:", error);
+      setIsApplyingLayout(false);
+    }
+  }, [data.nodes, data.edges, dispatch, fitView]);
 
   const edgeReconnectSuccessful = useRef<boolean>(true);
 
@@ -53,19 +96,22 @@ export const Flow = () => {
   const [initialDescription, setInitialDescription] = useState<string>("");
 
   // Находим выбранный узел
-  const selectedNode = data.nodes.find((node) => node.id === selectedNodeId);
+  const selectedNode = data.nodes?.find(
+    (node: Node) => node.id === selectedNodeId
+  );
 
-  // При открытии панели устанавливаем текущее значение только один раз
+  // При открытии панели устанавливаем текущее значение
   useEffect(() => {
     if (selectedNodeId && selectedNode && isPanelOpen) {
-      const label = selectedNode.data?.label || "";
-      const description = selectedNode.data?.description || "";
+      const nodeData = selectedNode.data;
+      const label = nodeData?.label || "";
+      const description = nodeData?.description || "";
       setTempNodeLabel(label);
       setTempNodeDescription(description);
       setInitialLabel(label);
       setInitialDescription(description);
     }
-  }, [selectedNodeId, isPanelOpen]);
+  }, [selectedNodeId, isPanelOpen, selectedNode]);
 
   // Обработчик клика по узлу
   const onNodeClick = useCallback((_: unknown, node: Node) => {
@@ -78,17 +124,14 @@ export const Flow = () => {
     if (selectedNodeId) {
       const updatedData: { label?: string; description?: string } = {};
 
-      // Проверяем, изменилась ли метка
       if (tempNodeLabel !== initialLabel) {
         updatedData.label = tempNodeLabel;
       }
 
-      // Проверяем, изменилось ли описание
       if (tempNodeDescription !== initialDescription) {
         updatedData.description = tempNodeDescription;
       }
 
-      // Если есть изменения, диспатчим объединенный экшен
       if (Object.keys(updatedData).length > 0) {
         dispatch(
           updateNodeData({
@@ -191,8 +234,36 @@ export const Flow = () => {
     [dispatch]
   );
 
+  // Функция для повторного применения layout
+  const handleReapplyLayout = useCallback(() => {
+    applyLayout();
+  }, [applyLayout]);
+
   return (
     <div className={styles.container}>
+      {/* Индикатор загрузки */}
+      {isLoading && (
+        <div className={styles.loadingOverlay}>
+          <div className={styles.loadingSpinner}></div>
+          <p>Создание графа...</p>
+        </div>
+      )}
+
+      {/* Индикатор применения layout */}
+      {isApplyingLayout && (
+        <div className={styles.layoutOverlay}>
+          <div className={styles.layoutSpinner}></div>
+          <p>Применение layout...</p>
+        </div>
+      )}
+
+      {/* Индикатор ошибки */}
+      {error && (
+        <div className={styles.errorOverlay}>
+          <p className={styles.errorText}>Ошибка: {error}</p>
+        </div>
+      )}
+
       <ReactFlow
         nodes={data.nodes}
         edges={data.edges}
@@ -201,16 +272,51 @@ export const Flow = () => {
         onConnect={handleConnect}
         onNodeClick={onNodeClick}
         connectionLineType={ConnectionLineType.SmoothStep}
-        fitView
         snapToGrid
         onReconnect={handleReconnect}
         onReconnectStart={onReconnectStart}
         onReconnectEnd={onReconnectEnd}
         proOptions={{ hideAttribution: true }}
+        nodeTypes={nodeTypes}
+        edgesFocusable={false}
+        nodesFocusable={false}
       >
         <Controls position="bottom-left" style={{ bottom: "25%" }} />
         <Background />
       </ReactFlow>
+
+      {/* Информация о графе */}
+      {data.nodes.length > 0 && (
+        <div className={styles.graphInfo}>
+          <div className={styles.infoItem}>
+            <span className={styles.infoLabel}>Узлов:</span>
+            <span className={styles.infoValue}>{data.nodes.length}</span>
+          </div>
+          <div className={styles.infoItem}>
+            <span className={styles.infoLabel}>Связей:</span>
+            <span className={styles.infoValue}>{data.edges.length}</span>
+          </div>
+          {hasMore && leafNodes.length > 0 && (
+            <div className={styles.infoItem}>
+              <span className={styles.infoLabel}>Для детализации:</span>
+              <span className={styles.infoValue}>{leafNodes.length}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Кнопка для повторного применения layout */}
+      {data.nodes.length > 0 && (
+        <button
+          className={styles.recalculateButton}
+          onClick={handleReapplyLayout}
+          title="Применить layout"
+          disabled={isApplyingLayout || isLoading}
+        >
+          {isApplyingLayout ? "↻ Применение..." : "↻ Layout"}
+        </button>
+      )}
+
       <FlowPanel
         onClose={closePanel}
         isOpen={isPanelOpen}

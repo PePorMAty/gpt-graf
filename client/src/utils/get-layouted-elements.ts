@@ -1,43 +1,60 @@
-// utils/get-layouted-elements.ts
-import dagre from "@dagrejs/dagre";
-import type { CustomNode } from "../types";
-import type { Edge } from "@xyflow/react";
+import dagre from "dagre";
+import { Position } from "@xyflow/react";
+import type { CustomEdge, CustomNode } from "../types";
 
-const nodeWidth = 172;
-const nodeHeight = 36;
+const dagreGraph = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
 
-const dagreGraph = new dagre.graphlib.Graph();
-dagreGraph.setDefaultEdgeLabel(() => ({}));
+const nodeWidth = 300;
+const nodeHeight = 140;
 
-export const getLayoutedElements = (
+export function getLayoutedElements(
   nodes: CustomNode[],
-  edges: Edge[]
-): { nodes: CustomNode[]; edges: Edge[] } => {
-  dagreGraph.setGraph({ rankdir: "TB" });
+  edges: CustomEdge[],
+  direction: "TB" | "LR" = "TB"
+) {
+  const isHorizontal = direction === "LR";
+
+  const filteredEdges = edges.filter((edge) => {
+    return !edges.some(
+      (inv) => inv.source === edge.target && inv.target === edge.source
+    );
+  });
+
+  dagreGraph.setGraph({ rankdir: direction, nodesep: 80, ranksep: 150 });
 
   nodes.forEach((node) => {
-    dagreGraph.setNode(node.id, {
-      width: node.width || nodeWidth,
-      height: node.height || nodeHeight,
-    });
+    dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
   });
 
   edges.forEach((edge) => {
     dagreGraph.setEdge(edge.source, edge.target);
   });
 
+  filteredEdges.forEach((edge) => {
+    dagreGraph.setEdge(edge.source, edge.target);
+  });
+
   dagre.layout(dagreGraph);
 
-  const newNodes = nodes.map((node) => {
-    const nodeWithPosition = dagreGraph.node(node.id);
+  const layoutedNodes: CustomNode[] = nodes.map((node) => {
+    const pos = dagreGraph.node(node.id);
+
     return {
       ...node,
       position: {
-        x: nodeWithPosition.x - (node.width || nodeWidth) / 2,
-        y: nodeWithPosition.y - (node.height || nodeHeight) / 2,
+        x: pos.x - nodeWidth / 2,
+        y: pos.y - nodeHeight / 2,
       },
+      targetPosition: isHorizontal ? Position.Left : Position.Top,
+      sourcePosition: isHorizontal ? Position.Right : Position.Bottom,
+      draggable: true,
     };
   });
 
-  return { nodes: newNodes, edges };
-};
+  const layoutedEdges: CustomEdge[] = edges.map((edge) => ({
+    ...edge,
+    type: "smoothstep",
+  }));
+
+  return { nodes: layoutedNodes, edges: layoutedEdges };
+}
