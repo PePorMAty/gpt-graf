@@ -20,7 +20,12 @@ export function getLayoutedElements(
     );
   });
 
-  dagreGraph.setGraph({ rankdir: direction, nodesep: 80, ranksep: 150 });
+  dagreGraph.setGraph({
+    rankdir: direction,
+    nodesep: 80,
+    ranksep: 150,
+    edgesep: 60,
+  });
 
   nodes.forEach((node) => {
     dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });

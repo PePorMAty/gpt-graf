@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import styles from "./ContinueGraphButton.module.css";
+import { continueGraph } from "../../store/slices/gptSlice";
 
 export const ContinueGraphButton: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { leafNodes, originalPrompt, isLoading, data } = useAppSelector(
-    (state) => state.gpt
-  );
+  const { leafNodes, isLoading, data } = useAppSelector((state) => state.gpt);
 
   const [selectedLeafNodes, setSelectedLeafNodes] = useState<string[]>([]);
 
@@ -20,12 +19,8 @@ export const ContinueGraphButton: React.FC = () => {
   }, [leafNodes]);
 
   const handleContinue = () => {
-    if (
-      originalPrompt &&
-      selectedLeafNodes.length > 0 &&
-      data.nodes.length > 0
-    ) {
-      console.log("Continuing graph with nodes:", selectedLeafNodes);
+    if (selectedLeafNodes.length > 0) {
+      dispatch(continueGraph({ selectedLeafNodes }));
     }
   };
 

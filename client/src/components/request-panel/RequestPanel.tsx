@@ -71,13 +71,6 @@ export const RequestPanel = () => {
           >
             {isLoading ? "Создание..." : "Создать граф"}
           </button>
-
-          {/* Показываем кнопку продолжения, если есть leaf nodes */}
-          {hasMore && leafNodes.length > 0 && (
-            <div className={styles.continueSection}>
-              <ContinueGraphButton />
-            </div>
-          )}
         </div>
       )}
 
@@ -122,13 +115,6 @@ export const RequestPanel = () => {
               </p>
             </div>
           )}
-        </div>
-      )}
-
-      {/* Показываем кнопку продолжения под всеми вкладками, если есть что детализировать */}
-      {hasMore && leafNodes.length > 0 && activeTab !== "continue" && (
-        <div className={styles.floatingContinue}>
-          <ContinueGraphButton />
         </div>
       )}
     </div>

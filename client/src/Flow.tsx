@@ -280,6 +280,8 @@ export const Flow = () => {
         nodeTypes={nodeTypes}
         edgesFocusable={false}
         nodesFocusable={false}
+        minZoom={0.1} // ← можно отдалить сильнее
+        maxZoom={2}
       >
         <Controls position="bottom-left" style={{ bottom: "25%" }} />
         <Background />

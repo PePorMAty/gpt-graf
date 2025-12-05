@@ -1,3 +1,4 @@
+import { type RootState } from "./../store";
 // store/slices/gptSlice.ts
 import {
   createAsyncThunk,
@@ -18,10 +19,12 @@ import type {
   CustomEdge,
   CustomNode,
   CustomNodeData,
+  GPTGraphResponse,
   GraphApiResponse,
 } from "../../types";
 import axios from "axios";
 import { normalizeEdges } from "../../utils/normalize-edges";
+import { normalizeNodes } from "../../utils/normalize-nodes";
 
 export interface DataI {
   nodes: CustomNode[];
@@ -73,6 +76,32 @@ export const getGraphData = createAsyncThunk(
         );
       }
       return rejectWithValue("Неизвестная ошибка");
+    }
+  }
+);
+
+export const continueGraph = createAsyncThunk<
+  GPTGraphResponse, // <— тип ответа
+  { selectedLeafNodes: string[] }, // <— тип аргументов
+  { state: RootState } // <— тип getState()
+>(
+  "gpt/continueGraph",
+  async ({ selectedLeafNodes }, { getState, rejectWithValue }) => {
+    const state = getState().gpt;
+
+    try {
+      const response = await axios.post<GPTGraphResponse>(
+        `${import.meta.env.VITE_API_URL}/graphs/gpt/continue`,
+        {
+          originalPrompt: state.originalPrompt,
+          existingGraph: state.data,
+          leafNodes: selectedLeafNodes,
+        }
+      );
+
+      return response.data;
+    } catch (err: any) {
+      return rejectWithValue(err.response?.data || "Continue graph error");
     }
   }
 );
@@ -178,14 +207,13 @@ const gptSlice = createSlice({
           return;
         }
 
-        // Сохраняем узлы с позициями 0,0 (layout будет применен в компоненте)
         state.data = {
-          nodes: data.nodes.map((node: CustomNode) => ({
-            ...node,
-            position: { x: 0, y: 0 }, // Начальные позиции
-          })),
+          nodes: normalizeNodes(data.nodes),
           edges: normalizeEdges(data.edges) || [],
         };
+
+        console.log("RAW edges from GPT:", data.edges);
+        console.log("RAW edges from GPT REDUX:", state.data.edges);
 
         state.isLoading = false;
         state.hasMore = data.has_more || false;
@@ -196,6 +224,40 @@ const gptSlice = createSlice({
         state.isLoading = false;
         state.isError = true;
         state.error = (action.payload as string) || "Неизвестная ошибка";
+      });
+    builder
+      .addCase(continueGraph.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(continueGraph.fulfilled, (state, action) => {
+        const { nodes, edges, leaf_nodes, has_more } = action.payload;
+
+        // 1. Приводим типы от сервера → внутренние типы
+        const normalizedNewNodes = normalizeNodes(nodes);
+        const normalizedNewEdges = normalizeEdges(edges);
+
+        // 2. Убираем дубли (как раньше)
+        const existingNodeIds = new Set(state.data.nodes.map((n) => n.id));
+        const filteredNodes = normalizedNewNodes.filter(
+          (n) => !existingNodeIds.has(n.id)
+        );
+
+        const existingEdgeIds = new Set(state.data.edges.map((e) => e.id));
+        const filteredEdges = normalizedNewEdges.filter(
+          (e) => !existingEdgeIds.has(e.id)
+        );
+
+        // 3. Обновляем стор
+        state.data.nodes = [...state.data.nodes, ...filteredNodes];
+        state.data.edges = [...state.data.edges, ...filteredEdges];
+
+        state.leafNodes = leaf_nodes;
+        state.hasMore = has_more;
+        state.isLoading = false;
+      })
+      .addCase(continueGraph.rejected, (state) => {
+        state.isLoading = false;
+        state.isError = true;
       });
   },
 });

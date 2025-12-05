@@ -32,3 +32,27 @@ export interface GraphApiResponse {
   leaf_nodes?: string[];
   message?: string;
 }
+
+export interface GPTNode {
+  id: string;
+  type?: string;
+  data: {
+    label: string;
+  };
+  position?: { x: number; y: number };
+}
+
+export interface GPTEdge {
+  id: string;
+  source: string;
+  target: string;
+  type?: string;
+}
+
+export interface GPTGraphResponse {
+  success: boolean;
+  nodes: GPTNode[];
+  edges: GPTEdge[];
+  leaf_nodes: string[];
+  has_more: boolean;
+}
