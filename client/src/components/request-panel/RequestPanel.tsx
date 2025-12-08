@@ -1,13 +1,15 @@
 import { useState, useEffect } from "react";
-import { getGraphData } from "../../store/slices/gptSlice";
+
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
 import { ContinueGraphButton } from "../continue-graph-button";
+import { getGraphData } from "../../store/api/graph-api";
+
 import styles from "./RequsetPanel.module.css";
 
 export const RequestPanel = () => {
   const dispatch = useAppDispatch();
   const { hasMore, leafNodes, originalPrompt, isLoading } = useAppSelector(
-    (state) => state.gpt
+    (state) => state.graph
   );
   const [value, setValue] = useState<string>("");
   const [activeTab, setActiveTab] = useState<"create" | "combine" | "continue">(

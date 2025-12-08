@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from "react";
+
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
+import { continueGraph } from "../../store/api/graph-api";
+
 import styles from "./ContinueGraphButton.module.css";
-import { continueGraph } from "../../store/slices/gptSlice";
 
 export const ContinueGraphButton: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { leafNodes, isLoading, data } = useAppSelector((state) => state.gpt);
+  const { leafNodes, isLoading, data } = useAppSelector((state) => state.graph);
 
   const [selectedLeafNodes, setSelectedLeafNodes] = useState<string[]>([]);
 

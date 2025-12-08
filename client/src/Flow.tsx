@@ -16,12 +16,6 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
-import { FlowPanel } from "./components/flow-panel/FlowPanel";
-import { ProductNode } from "./components/nodes/ProductNode";
-import { TransformationNode } from "./components/nodes/TransformationNode";
-
-import styles from "./styles/Flow.module.css";
-import { useAppSelector, useAppDispatch } from "./store/hooks";
 import {
   updateNodeData,
   onNodesChange,
@@ -32,7 +26,12 @@ import {
   removeNode,
   setGraphData,
 } from "./store/slices/gptSlice";
+import { useAppSelector, useAppDispatch } from "./store/hooks";
+import { FlowPanel } from "./components/flow-panel";
+import { ProductNode, TransformationNode } from "./components/nodes";
 import { getLayoutedElements } from "./utils/get-layouted-elements";
+
+import styles from "./styles/Flow.module.css";
 
 const nodeTypes: NodeTypes = {
   product: ProductNode,
@@ -41,9 +40,7 @@ const nodeTypes: NodeTypes = {
 
 export const Flow = () => {
   const dispatch = useAppDispatch();
-  const { data, leafNodes, hasMore, isLoading, error } = useAppSelector(
-    (store) => store.gpt
-  );
+  const { data, isLoading, error } = useAppSelector((store) => store.graph);
   const { fitView } = useReactFlow();
   const hasFittedView = useRef(false);
   const [isApplyingLayout, setIsApplyingLayout] = useState(false);
@@ -60,8 +57,6 @@ export const Flow = () => {
     if (data.nodes.length === 0) return;
 
     setIsApplyingLayout(true);
-    console.log("Applying layout to", data.nodes.length, "nodes...");
-
     try {
       const { nodes: layoutedNodes, edges: layoutedEdges } =
         getLayoutedElements(data.nodes, data.edges, "TB");
@@ -79,8 +74,7 @@ export const Flow = () => {
         hasFittedView.current = true;
         setIsApplyingLayout(false);
       }, 100);
-    } catch (error) {
-      console.error("Failed to apply layout:", error);
+    } catch {
       setIsApplyingLayout(false);
     }
   }, [data.nodes, data.edges, dispatch, fitView]);
@@ -234,11 +228,6 @@ export const Flow = () => {
     [dispatch]
   );
 
-  // Функция для повторного применения layout
-  const handleReapplyLayout = useCallback(() => {
-    applyLayout();
-  }, [applyLayout]);
-
   return (
     <div className={styles.container}>
       {/* Индикатор загрузки */}
@@ -280,45 +269,12 @@ export const Flow = () => {
         nodeTypes={nodeTypes}
         edgesFocusable={false}
         nodesFocusable={false}
-        minZoom={0.1} // ← можно отдалить сильнее
+        minZoom={0.1}
         maxZoom={2}
       >
         <Controls position="bottom-left" style={{ bottom: "25%" }} />
         <Background />
       </ReactFlow>
-
-      {/* Информация о графе */}
-      {data.nodes.length > 0 && (
-        <div className={styles.graphInfo}>
-          <div className={styles.infoItem}>
-            <span className={styles.infoLabel}>Узлов:</span>
-            <span className={styles.infoValue}>{data.nodes.length}</span>
-          </div>
-          <div className={styles.infoItem}>
-            <span className={styles.infoLabel}>Связей:</span>
-            <span className={styles.infoValue}>{data.edges.length}</span>
-          </div>
-          {hasMore && leafNodes.length > 0 && (
-            <div className={styles.infoItem}>
-              <span className={styles.infoLabel}>Для детализации:</span>
-              <span className={styles.infoValue}>{leafNodes.length}</span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Кнопка для повторного применения layout */}
-      {data.nodes.length > 0 && (
-        <button
-          className={styles.recalculateButton}
-          onClick={handleReapplyLayout}
-          title="Применить layout"
-          disabled={isApplyingLayout || isLoading}
-        >
-          {isApplyingLayout ? "↻ Применение..." : "↻ Layout"}
-        </button>
-      )}
-
       <FlowPanel
         onClose={closePanel}
         isOpen={isPanelOpen}

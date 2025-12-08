@@ -1,10 +1,4 @@
-import { type RootState } from "./../store";
-// store/slices/gptSlice.ts
-import {
-  createAsyncThunk,
-  createSlice,
-  type PayloadAction,
-} from "@reduxjs/toolkit";
+import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import {
   type Edge,
   type Connection,
@@ -15,33 +9,15 @@ import {
   addEdge,
   reconnectEdge,
 } from "@xyflow/react";
-import type {
-  CustomEdge,
-  CustomNode,
-  CustomNodeData,
-  GPTGraphResponse,
-  GraphApiResponse,
-} from "../../types";
-import axios from "axios";
+
 import { normalizeEdges } from "../../utils/normalize-edges";
 import { normalizeNodes } from "../../utils/normalize-nodes";
+import { continueGraph, getGraphData } from "../api/graph-api";
 
-export interface DataI {
-  nodes: CustomNode[];
-  edges: CustomEdge[];
-}
+import type { CustomNode, CustomNodeData } from "../../types";
+import type { InitialGraphStateI } from "../types";
 
-export interface InitialStateI {
-  data: DataI;
-  isLoading: boolean;
-  isError: boolean;
-  error: string | null;
-  hasMore: boolean;
-  leafNodes: string[];
-  originalPrompt: string | null;
-}
-
-const initialState: InitialStateI = {
+const initialState: InitialGraphStateI = {
   data: {
     nodes: [],
     edges: [],
@@ -54,60 +30,8 @@ const initialState: InitialStateI = {
   originalPrompt: null,
 };
 
-export const getGraphData = createAsyncThunk(
-  "gpt/getGraphData",
-  async (promptValue: string, { rejectWithValue }) => {
-    try {
-      const response = await axios.post<GraphApiResponse>(
-        `${import.meta.env.VITE_API_URL}/graphs/gpt`,
-        {
-          userPrompt: promptValue,
-        }
-      );
-      return {
-        data: response.data,
-        message: response.data.message || "Граф создан",
-      };
-    } catch (error: unknown) {
-      console.error("Ошибка при создании графа:", error);
-      if (axios.isAxiosError(error)) {
-        return rejectWithValue(
-          error.response?.data?.error || error.message || "Ошибка сети"
-        );
-      }
-      return rejectWithValue("Неизвестная ошибка");
-    }
-  }
-);
-
-export const continueGraph = createAsyncThunk<
-  GPTGraphResponse, // <— тип ответа
-  { selectedLeafNodes: string[] }, // <— тип аргументов
-  { state: RootState } // <— тип getState()
->(
-  "gpt/continueGraph",
-  async ({ selectedLeafNodes }, { getState, rejectWithValue }) => {
-    const state = getState().gpt;
-
-    try {
-      const response = await axios.post<GPTGraphResponse>(
-        `${import.meta.env.VITE_API_URL}/graphs/gpt/continue`,
-        {
-          originalPrompt: state.originalPrompt,
-          existingGraph: state.data,
-          leafNodes: selectedLeafNodes,
-        }
-      );
-
-      return response.data;
-    } catch (err: any) {
-      return rejectWithValue(err.response?.data || "Continue graph error");
-    }
-  }
-);
-
 const gptSlice = createSlice({
-  name: "gpt",
+  name: "graph",
   initialState,
   reducers: {
     updateNodeData: (
@@ -211,9 +135,6 @@ const gptSlice = createSlice({
           nodes: normalizeNodes(data.nodes),
           edges: normalizeEdges(data.edges) || [],
         };
-
-        console.log("RAW edges from GPT:", data.edges);
-        console.log("RAW edges from GPT REDUX:", state.data.edges);
 
         state.isLoading = false;
         state.hasMore = data.has_more || false;

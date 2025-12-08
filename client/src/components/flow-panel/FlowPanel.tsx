@@ -1,16 +1,7 @@
 import { useEffect, useRef, type FC } from "react";
 
+import type { FlowPanelProps } from "./types";
 import styles from "./FlowPanel.module.css";
-
-interface FlowPanelProps {
-  onClose: () => void;
-  isOpen: boolean;
-  value: string;
-  onChangeValue: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  onDelete?: () => void;
-  descriptionValue: string; // Добавляем значение описания
-  onChangeDescription: (event: React.ChangeEvent<HTMLTextAreaElement>) => void;
-}
 
 export const FlowPanel: FC<FlowPanelProps> = ({
   onClose,

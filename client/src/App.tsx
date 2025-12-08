@@ -1,8 +1,9 @@
 import { ReactFlowProvider } from "@xyflow/react";
 
 import { Flow } from "./Flow";
+import { RequestPanel } from "./components/request-panel";
+
 import styles from "./styles/App.module.css";
-import { RequestPanel } from "./components/request-panel/RequestPanel";
 
 function App() {
   return (

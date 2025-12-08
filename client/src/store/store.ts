@@ -3,7 +3,7 @@ import gptSlice from "./slices/gptSlice";
 
 const store = configureStore({
   reducer: {
-    gpt: gptSlice,
+    graph: gptSlice,
   },
 });
 
